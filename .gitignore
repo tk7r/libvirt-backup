@@ -8,6 +8,12 @@
 /debian/libvirt-backup/
 /debian/tmp/
 
+# rpm + Pages repo builds (see libvirt-backup.spec, release workflow)
+/rpmbuild/
+/pages/
+/libvirt-backup-*.tar.gz
+/libvirt-backup-*.rpm
+
 # python
 __pycache__/
 *.pyc
