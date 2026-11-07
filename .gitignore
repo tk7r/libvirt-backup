@@ -1,0 +1,17 @@
+# dpkg-buildpackage build output
+/debian/.debhelper/
+/debian/debhelper-build-stamp
+/debian/files
+/debian/*.debhelper.log
+/debian/*.debhelper
+/debian/*.substvars
+/debian/libvirt-backup/
+/debian/tmp/
+
+# python
+__pycache__/
+*.pyc
+
+# local secrets / env files
+.env
+.env.*

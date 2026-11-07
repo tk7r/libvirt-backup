@@ -1,0 +1,13 @@
+[Unit]
+Description=libvirt backup repository integrity check
+ConditionPathExists=/etc/libvirt-backup/libvirt-backup.toml
+
+[Service]
+Type=oneshot
+TimeoutStartSec=infinity
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=yes
+PrivateTmp=yes
+ExecStart=/usr/bin/libvirt-backup check

@@ -1,0 +1,8 @@
+# Formatting/lint standard for this repository (see AGENTS.md).
+#   format:  ruff format libvirt-backup.py
+#   lint:    ruff check libvirt-backup.py
+
+line-length = 79
+
+[lint]
+select = ["E", "F", "W", "B"]

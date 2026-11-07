@@ -1,0 +1,45 @@
+# libvirt-backup - EXAMPLE: plain directory backup, standalone qcow2
+#
+# Result per VM in backup_dir (example VM "web1", disk "vda"):
+#   web1-backup-vda.qcow2   self-contained qcow2 image (no dependency on
+#                           the live disk - the backup overlay is flattened
+#                           with qemu-img convert), zlib-compressed here
+#   web1-backup.xml         <domainbackup> job description
+#   web1-state.json         selection state (last success, retries)
+#   web1-config.xml         live domain XML (virsh dumpxml equivalent)
+#   web1-backup.log         log of this VM's backup run
+#
+# Install as /etc/libvirt-backup/libvirt-backup.toml (or pass via
+# --config).  Run standalone backups as root: qemu creates the overlay
+# root:root 0600 and qemu-img must read it.
+#
+# Restore:  libvirt-backup restore -D web1 -d /restore/web1 --verify --rewrite
+
+
+[backup]
+uri = "qemu:///system"
+backup_dir = "/var/lib/libvirt/backups"
+
+timeout = 14400            # 4 h per VM, 0 = no limit
+freeze = "try"             # fsFreeze via guest agent, WARN if unavailable
+standalone = true          # flatten to self-contained images (the default)
+dest_format = "qcow2"      # final format (the default; "raw" also possible)
+compress = true            # zlib-compress the qcow2 (qcow2 only)
+verify = true              # qemu-img check every final image
+
+# incremental = true       # optional per-VM/here: dirty-bitmap chains,
+                           # only changed blocks after the first full
+                           # backup; restore merges the chain automatically
+
+backoff = "7d"             # min. time between two backups of one VM;
+                           # every run picks the VM whose last success
+                           # lies furthest back (0 = always eligible)
+
+
+# per-VM overrides (name or quoted glob), applied in file order
+[domains."test-*"]
+exclude = true
+
+[domains.db1]
+timeout = 28800            # 1.2 TiB LUN needs longer than the global limit
+freeze = "no"              # guest agent never answers here

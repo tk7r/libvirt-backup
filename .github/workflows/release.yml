@@ -1,0 +1,125 @@
+# release.yml - build the .deb and .rpm when a release is published,
+# attach them plus a versioned source tarball to the release, and
+# publish signed apt + dnf repositories from the gh-pages branch.
+#
+# One-time setup (see README, "CI and releases"):
+#   - Pages enabled for the repository, serving the gh-pages branch
+#   - secret REPO_SIGNING_KEY: armored GPG secret key (may be
+#     passphrase-protected, then also REPO_SIGNING_KEY_PASSPHRASE)
+#   - packaging/repo-pub.asc: that key's armored public key
+#
+# The release tag must carry the version from debian/changelog, with
+# or without a leading 'v' (a mismatch fails the run - bump the
+# changelog before tagging).
+
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build packages, publish assets and Pages repos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build and repository tools
+        run: >
+          sudo apt-get update
+          && sudo apt-get install -y
+          dpkg-dev debhelper fakeroot rpm apt-utils createrepo-c
+
+      - name: Read version from debian/changelog
+        id: ver
+        run: >
+          echo "version=$(sed -n '1s/^[^(]*(\([^)]*\)).*/\1/p'
+          debian/changelog)" >> "$GITHUB_OUTPUT"
+
+      - name: Tag must match debian/changelog
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "${{ steps.ver.outputs.version }}" ]; then
+            echo "release tag '$GITHUB_REF_NAME' does not match version '${{ steps.ver.outputs.version }}' in debian/changelog" >&2
+            exit 1
+          fi
+
+      - name: Build .deb
+        run: ./build-package.sh
+
+      - name: Build source tarball and .rpm
+        run: |
+          ver=${{ steps.ver.outputs.version }}
+          git archive --format=tar --prefix="libvirt-backup-$ver/" HEAD \
+            | gzip -9n > "libvirt-backup-$ver.tar.gz"
+          # --nodeps: the runner has python3 but no RPM dependency
+          # database, so BuildRequires cannot be resolved here
+          rpmbuild -bb --nodeps \
+            --define "lb_version $ver" \
+            --define "_sourcedir $PWD" \
+            --define "_topdir $PWD/rpmbuild" \
+            libvirt-backup.spec
+          mv ../libvirt-backup_*.deb rpmbuild/RPMS/noarch/*.rpm .
+
+      - name: Upload assets to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release upload "$GITHUB_REF_NAME"
+          libvirt-backup_*.deb
+          libvirt-backup-${{ steps.ver.outputs.version }}-1.noarch.rpm
+          libvirt-backup-${{ steps.ver.outputs.version }}.tar.gz
+
+      - name: Check out gh-pages branch
+        id: ghpages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if git ls-remote --exit-code origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages:gh-pages
+            git worktree add pages gh-pages
+            echo exists=yes >> "$GITHUB_OUTPUT"
+          else
+            mkdir pages
+            git -C pages init -q
+            git -C pages remote add origin \
+              "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            echo exists=no >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write signing key
+        env:
+          KEY: ${{ secrets.REPO_SIGNING_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "error: secret REPO_SIGNING_KEY is not set - see README" >&2
+            exit 1
+          fi
+          printf '%s\n' "$KEY" > "$RUNNER_TEMP/repo-signing-key.asc"
+
+      - name: Publish apt + dnf repositories into Pages tree
+        env:
+          PAGES_DIR: pages
+          DEB_FILE: libvirt-backup_${{ steps.ver.outputs.version }}_all.deb
+          RPM_FILE: >-
+            libvirt-backup-${{ steps.ver.outputs.version }}-1.noarch.rpm
+          PAGES_URL: https://tk7r.github.io/libvirt-backup
+          PUBKEY_FILE: packaging/repo-pub.asc
+          SIGNING_KEY_FILE: ${{ runner.temp }}/repo-signing-key.asc
+          SIGNING_KEY_PASSPHRASE: ${{ secrets.REPO_SIGNING_KEY_PASSPHRASE }}
+        run: ./packaging/publish-repo.sh
+
+      - name: Push gh-pages branch
+        run: |
+          git -C pages config user.name github-actions[bot]
+          git -C pages config user.email \
+            41898282+github-actions[bot]@users.noreply.github.com
+          git -C pages add -A
+          git -C pages diff --cached --quiet \
+            || git -C pages commit -m "libvirt-backup ${{ steps.ver.outputs.version }}"
+          git -C pages push origin HEAD:gh-pages

@@ -1,0 +1,29 @@
+Source: libvirt-backup
+Section: admin
+Priority: optional
+Maintainer: Thomas Kotzian <thomas.kotzian@lausa.at>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: libvirt-backup
+Architecture: all
+Depends:
+ python3,
+ python3-libvirt,
+ qemu-utils,
+ ${misc:Depends},
+Recommends:
+ rustic | restic,
+ python3-libnbd,
+Description: push backup and restore tool for libvirt/QEMU virtual machines
+ libvirt-backup backs up every running domain of a libvirt host entirely
+ through the libvirt API (domfsfreeze, backupBegin, blockjob monitoring,
+ dumpxml).  Images are written as standalone qcow2/raw files into a backup
+ directory, or flattened to raw and streamed into a deduplicated,
+ encrypted rustic/restic repository (e.g. S3).
+ .
+ The restore subcommand places one VM's images and XMLs into a destination
+ directory and runs on a rescue system without libvirt; forget and check
+ handle repository retention and integrity.  The included systemd timers
+ stay inert until /etc/libvirt-backup/libvirt-backup.toml exists.

@@ -1,0 +1,146 @@
+# libvirt-backup.toml - template configuration
+#
+# Install as /etc/libvirt-backup/libvirt-backup.toml (root; the packaged
+# default), /etc/libvirt-backup.toml (legacy) or
+# ~/.config/libvirt-backup.toml, or point at it with
+#  libvirt-backup backup --config FILE
+#
+# Ready-made working examples: examples/libvirt-backup-directory.toml
+# (plain directory, standalone qcow2) and examples/libvirt-backup-rustic.toml
+# (S3 repository, raw streamed into rustic).
+#
+# Precedence: command line > this file > built-in defaults.
+# Every key below is optional; uncomment and adjust what you need.
+# Unknown keys produce a warning, invalid values abort with an error.
+
+
+# ---------------------------------------------------------------------------
+# [backup] - global defaults for the 'backup' subcommand
+# ---------------------------------------------------------------------------
+[backup]
+
+# libvirt connection URI (default: qemu:///system; remote example:
+# "qemu+ssh://host/system")
+#uri = "qemu:///system"
+
+# destination directory for all backup artefacts
+# (default: /var/lib/libvirt/backups)
+#backup_dir = "/var/lib/libvirt/backups"
+
+# seconds between blockjob progress polls (default: 2.0)
+#poll_interval = 2.0
+
+# abort one VM's backup after this many seconds, 0 = wait forever
+# (default: 0)
+#timeout = 14400
+
+# guest agent freeze behaviour: "try" (default, WARN on failure),
+# "no" (never try), "require" (FAIL on failure)
+#freeze = "try"
+
+# replace existing backup images instead of failing
+# (default: false)
+#overwrite = false
+
+# flatten the backup overlay into a standalone image with qemu-img
+# convert (default: true; false keeps the overlay, which then depends
+# on the VM's original disk)
+#standalone = true
+
+# final image format: "qcow2" (default) or "raw"
+#dest_format = "qcow2"
+
+# store standalone images zlib-compressed, qcow2 only
+# (default: false)
+#compress = false
+
+# after each backup: qemu-img check the images (directory mode) or
+# confirm the repository snapshots contain every file (repo mode)
+# (default: false)
+#verify = true
+
+# checkpoint-based incremental backups, directory mode only: after the
+# first full backup only changed blocks are written; needs qcow2 at the
+# active layer, restore merges the chain automatically
+# (default: false)
+#incremental = false
+
+# minimum time between two backups of the same VM, e.g. "12h", "7d" or
+# a number of seconds; each run backs up the VM whose last successful
+# backup lies furthest back, so with a backoff long enough every VM
+# still cycles through.  0 = every VM eligible every run (default);
+# -D selections always bypass it
+#backoff = "7d"
+
+
+# ---------------------------------------------------------------------------
+# [domains.<name-or-glob>] - per-VM overrides of the keys above (plus
+# 'exclude'); sections are applied in file order to every matching name
+# ---------------------------------------------------------------------------
+
+# never back these VMs up (glob patterns must be quoted in TOML)
+#[domains."test-*"]
+#exclude = true
+
+# big VM: longer timeout, no freeze attempt
+#[domains.db1]
+#timeout = 28800
+#freeze = "no"
+
+# qcow2 VM with frequent changes: incremental chain
+#[domains.web1]
+#incremental = true
+#verify = true
+
+
+# ---------------------------------------------------------------------------
+# [repo] - rustic/restic repository mode for backup AND restore
+#
+# With a repository configured, images are flattened as raw and streamed
+# into a deduplicated, encrypted, append-only repository instead of being
+# written as files to backup_dir.  Secrets travel via this file (mode
+# 0600!) or the environment, never on the command line.
+# Without [repo], plain directory mode is used.
+# ---------------------------------------------------------------------------
+#[repo]
+#
+# local path or S3/MinIO URL; other rustic/restic backends work too
+# (rest:, rclone:, ...).  rustic >= 0.8 has no built-in S3 anymore; the
+# tool routes 's3:' URLs through rustic's opendal backend automatically.
+#repository = "s3:https://s3.example.lan/bucket/libvirt"
+#
+# file containing the repository password (or export RUSTIC_PASSWORD /
+# RESTIC_PASSWORD)
+#password_file = "/etc/libvirt-backup/libvirt-backup.repo-pass"
+#
+# S3 credentials - or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+#access_key = "..."
+#secret_key = "..."
+#
+# REQUIRED for s3: URLs - or export AWS_REGION.  Must be the region the
+# server signs for: MinIO/AWS-like e.g. "eu-central-1", Garage servers
+# usually "garage" (a wrong region shows up as HTTP 400 "unexpected
+# scope").  Create an empty repository once: libvirt-backup init
+#region = "eu-central-1"
+#
+# which client to use: "auto" (default: rustic if available, else
+# restic), "rustic" or "restic"
+#bin = "auto"
+
+
+# ---------------------------------------------------------------------------
+# [retention] - policy for the 'forget' subcommand (repository mode)
+#
+# Runs (all snapshots of one VM run) are kept or pruned as a whole, per
+# VM; the newest run of each VM is never deleted.  Run via
+# 'libvirt-backup forget --dry-run' first; the systemd unit runs it
+# automatically after every successful backup.
+# ---------------------------------------------------------------------------
+#[retention]
+#keep_last = 0        # keep the newest N runs per VM
+#keep_daily = 7       # keep the newest run of the last N days per VM
+#keep_weekly = 4      # ... of the last N ISO weeks
+#keep_monthly = 6     # ... of the last N months
+#keep_yearly = 2      # ... of the last N years
+#keep_within = "30d"  # keep everything newer than e.g. 48h, 30d, 4w
+#prune = true         # also reclaim pack space (false: indexes only)

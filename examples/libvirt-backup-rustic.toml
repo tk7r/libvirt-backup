@@ -1,0 +1,77 @@
+# libvirt-backup - EXAMPLE: rustic/restic repository (S3), raw streamed
+#
+# Result per VM: NO image files on the host.  Each backup overlay is
+# flattened to RAW through a temporary read-only NBD export and piped
+# into 'rustic backup' - deduplicated, zstd-compressed, encrypted,
+# append-only.  Per VM and run one snapshot set tagged vm:<name> +
+# run:<timestamp> holds <vm>/<dev>.raw plus the two XMLs.
+#
+# backup_dir is still used: per-VM logs and XML staging (and it is the
+# default source of 'restore --from' in directory mode).
+#
+# Requirements on the backup host: rustic (preferred) or restic,
+# qemu-storage-daemon, python3-libnbd (package python3-libnbd).
+#
+# Install as /etc/libvirt-backup/libvirt-backup.toml (or pass via
+# --config); keep this file mode 0600 since it references the repository
+# credentials.
+#
+# Restore (same config file, works from any rescue host with rustic):
+#   libvirt-backup restore --list
+#   libvirt-backup restore -D web1 -d /restore/web1 --verify --rewrite
+# Retention + integrity:
+#   libvirt-backup forget --dry-run
+#   libvirt-backup check
+
+
+[backup]
+uri = "qemu:///system"
+backup_dir = "/var/lib/libvirt/backups"
+
+timeout = 14400
+freeze = "try"
+verify = true              # confirm every file landed in the snapshots
+backoff = "7d"             # min. time between two backups of one VM;
+                           # last success is read from the repository,
+                           # so it is shared across all backup hosts
+# NOTE: standalone / dest_format / compress do not apply in repository
+# mode - images are always streamed as raw (raw deduplicates cleanly,
+# rustic compresses with zstd).  incremental is directory-mode only.
+
+
+[repo]
+repository = "s3:https://s3.example.lan/bucket/libvirt"
+
+# repository password - file (mode 0600) or env RUSTIC_PASSWORD
+password_file = "/etc/libvirt-backup/libvirt-backup.repo-pass"
+
+# S3 credentials - here, or via env AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+access_key = "REPLACE-ME"
+secret_key = "REPLACE-ME"
+
+# REQUIRED for s3: URLs (also via env AWS_REGION) - rustic fails
+# without it.  Must be the region the server signs for: MinIO/AWS-like
+# e.g. "eu-central-1", Garage servers usually "garage" (wrong region
+# shows up as HTTP 400 "unexpected scope").
+region = "eu-central-1"
+
+bin = "rustic"             # or "restic", or "auto" (rustic if available)
+# rustic >= 0.8 has no built-in S3; the tool routes s3: URLs through
+# rustic's opendal backend.  Create an empty repository once with
+# 'libvirt-backup init'.
+
+
+# applied by 'libvirt-backup forget' (runs are kept/pruned whole, per
+# VM; newest run never deleted); the systemd unit runs it after every
+# successful backup
+[retention]
+keep_daily = 7
+keep_weekly = 4
+keep_monthly = 6
+keep_yearly = 2
+prune = true
+
+
+# per-VM overrides (name or quoted glob)
+[domains."test-*"]
+exclude = true

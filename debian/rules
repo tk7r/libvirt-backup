@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	install -D -m 0755 libvirt-backup.py \
+		debian/libvirt-backup/usr/bin/libvirt-backup
+	install -D -m 0644 examples/libvirt-backup-directory.toml \
+		debian/libvirt-backup/etc/libvirt-backup/libvirt-backup.toml.directory-mode
+	install -D -m 0644 examples/libvirt-backup-rustic.toml \
+		debian/libvirt-backup/etc/libvirt-backup/libvirt-backup.toml.repository-mode
+	install -D -m 0644 debian/libvirt-backup.1 \
+		debian/libvirt-backup/usr/share/man/man1/libvirt-backup.1
+	for u in libvirt-backup libvirt-backup-check; do \
+	  install -D -m 0644 systemd/$$u.service \
+	    debian/libvirt-backup/usr/lib/systemd/system/$$u.service; \
+	  install -D -m 0644 systemd/$$u.timer \
+	    debian/libvirt-backup/usr/lib/systemd/system/$$u.timer; \
+	done
+
+# The oneshot services must NOT run during package installation; the
+# timers are enabled and started (their services stay skipped by
+# ConditionPathExists until a config file exists).
+override_dh_installsystemd:
+	dh_installsystemd --no-start libvirt-backup.service libvirt-backup-check.service
+	dh_installsystemd libvirt-backup.timer libvirt-backup-check.timer

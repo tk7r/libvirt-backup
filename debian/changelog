@@ -1,0 +1,112 @@
+libvirt-backup (0.1.5) resolute; urgency=medium
+
+  * Locking rework for clusters sharing one backup directory: the
+    single global lock is replaced by a per-host run lock
+    (.libvirt-backup-<host>.lock) plus a per-VM lock
+    (.libvirt-backup-vm-<vm>.lock) taken around each VM's backup and
+    by directory-mode restores.  All hosts of a cluster can now back
+    up concurrently; a VM live-migrated while its backup still runs
+    on the old host is skipped by the new host (SKIP, holder named)
+    instead of racing for the same '<vm>-backup-*' artefacts, chain
+    file and snapshots.  Lock files record '<host> <pid>'; remote
+    holders are reported as-is.  Repository mode needs no extra
+    coordination: rustic is lock-free by design and restic's backup
+    lock is non-exclusive (only prune/check take an exclusive one).
+
+ -- Thomas Kotzian <thomas.kotzian@lausa.at>  Sat, 07 Nov 2026 12:20:00 +0100
+
+libvirt-backup (0.1.4) resolute; urgency=medium
+
+  * Selection overhaul: every run now backs up the VM whose last
+    successful backup lies furthest back first, re-evaluated before
+    every VM.  Interrupted long runs continue where they stopped
+    instead of restarting alphabetically, and a live-migrated VM is
+    seen with its real history on the receiving host.  Repository
+    mode reads the last success from the run tags, directory mode
+    from the new per-VM <vm>-state.json.
+  * New 'backoff' option (--backoff / [backup] backoff, e.g. "7d" or
+    seconds): minimum time between two backups of the same VM;
+    -D selections bypass it.
+  * Per-VM failure tracking in <vm>-state.json: after more than 2
+    consecutive failures the administrator is notified and the VM is
+    only retried once the backoff period has passed since the last
+    error; any success resets the counters.
+
+ -- Thomas Kotzian <thomas.kotzian@lausa.at>  Wed, 28 Oct 2026 23:55:00 +0100
+
+libvirt-backup (0.1.3) resolute; urgency=medium
+
+  * Security: the tool now runs with umask 0077 - backup images,
+    restored files, <vm>-config.xml (dumpxml can contain VNC
+    passwords), logs and chain state were previously created with the
+    caller's umask, i.e. usually world-readable VM disk images;
+    warnings when the config file or the repository password file is
+    accessible to group/others; string config values (uri,
+    backup_dir, repository, password_file, S3 keys) are validated.
+  * Robustness: SIGINT/SIGHUP/SIGTERM now abort the current VM
+    cleanly (fsThaw the guest, abort the backup job, discard the
+    overlay) and stop the run with a summary, instead of dying
+    silently between fsFreeze and fsThaw and leaving the guest file
+    systems frozen; corrupt incremental chain files fall back to a
+    new full backup; 'restore -d <file>' and empty qemu-img output
+    produce clean errors.
+  * 'check' in directory mode finally does what the documentation
+    promised: qemu-img check every standalone image in backup_dir
+    (chain members are skipped with a reason, raw images listed).
+  * systemd services gain NoNewPrivileges and PrivateTmp.
+
+ -- Thomas Kotzian <thomas.kotzian@lausa.at>  Wed, 28 Oct 2026 10:00:00 +0100
+
+libvirt-backup (0.1.2) resolute; urgency=medium
+
+  * Streaming robustness: qemu-storage-daemon and rustic/restic
+    stderr now go to log files instead of unread pipes; a chatty
+    client could fill the 64 KiB pipe buffer and silently deadlock a
+    multi-hour stream.  Error details are still reported from the
+    log files; the libnbd handle is closed explicitly.
+  * One VM's unexpected error (OSError, ValueError, ...) no longer
+    aborts the whole run: the VM is reported FAIL with the message
+    and the remaining VMs are still backed up; a blockJobInfo query
+    failure (domain destroyed mid-backup) becomes a clear error.
+  * Config validation: every [backup]/[repo]/[domains.*] value is
+    checked at load time; quoted numbers, string booleans
+    ('no' was truthy), invalid per-domain dest_format and
+    compress/dest_format/standalone contradictions now abort with
+    file, key and value instead of tracebacks or silent inversion;
+    malformed JSON from the repository client is reported as such.
+
+ -- Thomas Kotzian <thomas.kotzian@lausa.at>  Wed, 28 Oct 2026 09:30:00 +0100
+
+libvirt-backup (0.1.1) resolute; urgency=medium
+
+  * Robustness release, all around the backup run:
+    - checkpoints are only attempted for directory-mode VMs with
+      incremental enabled (fixes a repo-mode crash on qcow2 VMs and
+      removes WARN noise for raw/iSCSI VMs)
+    - leftover libvirt checkpoints are reported as WARN before each
+      backup and in --dry-run, with a virsh checkpoint-delete hint
+    - whole-run flock on the backup directory: concurrent backups skip
+      (exit 0), directory restores from a busy source refuse; --force
+      overrides a stuck lock, holder PID and fuser diagnostics included
+    - restic mode: stale repository locks are cleared automatically via
+      'restic unlock' + retry; rustic's lock-free design documented
+    - pre-flight before the first block job: repository probe (missing
+      init, wrong password/region/keys) and writable backup dir
+    - stale .qcow2.job intermediates from aborted runs are discarded
+      automatically; a still-active backup job fails the VM with a
+      virsh job-abort hint; failed runs no longer leave overlays behind
+  * Code quality: ruff format + ruff check (E,F,W,B) compliance,
+    docstrings for all functions.
+
+ -- Thomas Kotzian <thomas.kotzian@lausa.at>  Wed, 28 Oct 2026 08:00:00 +0100
+
+libvirt-backup (0.1.0) resolute; urgency=medium
+
+  * Initial packaged release: libvirt push backup/restore tool with
+    directory and rustic/restic repository modes, retention
+    (forget), integrity check, repository init, and guarded systemd
+    timers.
+  * S3 with rustic >= 0.8 is routed through rustic's opendal backend
+    automatically (the native s3 backend was removed there).
+
+ -- Thomas Kotzian <thomas.kotzian@lausa.at>  Tue, 27 Oct 2026 09:00:00 +0100

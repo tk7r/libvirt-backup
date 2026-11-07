@@ -1,0 +1,128 @@
+.\" man page for libvirt-backup
+.TH LIBVIRT-BACKUP 1 "2026-11-07" "0.1.5" "User Commands"
+.SH NAME
+libvirt-backup \- push backup and restore tool for libvirt/QEMU virtual machines
+.SH SYNOPSIS
+.B libvirt-backup backup
+.RI [ options ]
+.br
+.B libvirt-backup restore
+.RI [ options ]
+.br
+.B libvirt-backup forget
+.RI [ options ]
+.br
+.B libvirt-backup check
+.RI [ options ]
+.br
+.B libvirt-backup init
+.RI [ options ]
+.SH DESCRIPTION
+.B libvirt-backup
+backs up every running domain of a libvirt host entirely through the
+libvirt API (guest-agent fsFreeze,
+.BR backupBegin ,
+blockjob monitoring, dumpxml).
+Artefacts per VM are a domain backup XML, one image per disk, the live
+domain XML, a log and the selection state file
+.IR <vm> -state.json.
+.PP
+Images are either written as standalone qcow2/raw files into a backup
+directory, or flattened to raw and streamed into a deduplicated,
+encrypted rustic/restic repository (e.g. S3).
+.PP
+Before every VM the backup order is recomputed and the running VM whose
+last successful backup lies furthest back is picked next
+(never-backed-up VMs first), so an interrupted long run continues where
+it stopped instead of starving the alphabetically last VMs, and a
+live-migrated VM keeps its real backup history. The last success comes
+from the repository itself in repository mode (shared across hosts) and
+from
+.I <vm>-state.json
+in directory mode.
+.I backoff
+(config key, or
+.IR \-\-backoff )
+sets the minimum time between two backups of the same VM;
+.I \-D
+selections bypass it. After more than 2 consecutive failures the
+administrator is notified and the VM is only retried once the backoff
+period has passed since the last error; any success resets the counter.
+The
+.B restore
+subcommand places one VM's images and XMLs into a destination directory
+and runs on a rescue system without libvirt.
+.B forget
+applies the retention policy of the
+.B [retention]
+config section to the repository;
+.B check
+verifies repository integrity.
+.SH SUBCOMMANDS
+.TP
+.B backup
+back up all (or the selected) running domains
+.TP
+.B restore
+place one VM's backup into a destination directory
+(\fB\-\-list\fR shows available backups)
+.TP
+.B forget
+apply retention (repository mode); use \fB\-\-dry-run\fR first
+.TP
+.B check
+verify images (directory mode) or repository integrity (repo mode)
+.TP
+.B init
+create an empty rustic/restic repository (once, before the first backup)
+.SH OPTIONS
+Run
+.BI "libvirt-backup " subcommand " \-\-help"
+for the full option list of each subcommand.
+Common options:
+.BR \-d / \-\-dest ", " \-D / \-\-domain ", " \-\-config ", "
+.BR \-\-dry-run ", " \-\-verify .
+.PP
+Locks are per host and per VM: the run lock
+.RI ( .libvirt-backup-<host> .lock )
+lets one run per host, a second concurrent
+.B backup
+warns and skips (exit 0), and each VM backup holds that VM's lock
+.RI ( .libvirt-backup-vm-<vm> .lock ),
+which spans hosts on a shared backup directory - a VM live-migrated
+while still being backed up is skipped by the new host instead of
+racing for the same artefacts.
+.I \-\-force
+proceeds despite a lock left by a stuck run (last resort).
+.SH CONFIGURATION
+TOML file, searched at
+.IR /etc/libvirt-backup/libvirt-backup.toml ", "
+.IR /etc/libvirt-backup.toml " (legacy), "
+.IR ~/.config/libvirt-backup.toml ;
+precedence is command line > config file > defaults.
+Sections:
+.BR [backup] ", " [domains.NAME-or-glob] ", " [repo] ", " [retention] .
+Ready-made templates are installed as
+.IR /etc/libvirt-backup/libvirt-backup.toml.directory-mode
+and
+.IR .repository-mode ;
+the systemd units stay skipped until
+.IR /etc/libvirt-backup/libvirt-backup.toml
+exists.
+.SH FILES
+.TP
+.I /usr/bin/libvirt-backup
+the tool
+.TP
+.I /etc/libvirt-backup/
+configuration directory (units, templates)
+.TP
+.I /var/lib/libvirt/backups
+default backup directory
+.SH SEE ALSO
+.BR virsh (1),
+.BR qemu-img (1),
+.BR rustic (1),
+restic
+.SH AUTHOR
+Thomas Kotzian <thomas.kotzian@lausa.at>

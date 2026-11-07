@@ -1,0 +1,29 @@
+[Unit]
+Description=libvirt backup run
+Documentation=https://github.com/tk7r/libvirt-backup
+# The run is skipped (not failed) until a config file exists; the
+# packaged default location is /etc/libvirt-backup/libvirt-backup.toml
+# (copy one of libvirt-backup.toml.directory-mode / .repository-mode
+# next to it to get started):
+ConditionPathExists=/etc/libvirt-backup/libvirt-backup.toml
+# Enable if the backup destination is a separate mount (NFS/CIFS/USB);
+# the run is skipped (not failed) while it is not mounted:
+#ConditionPathIsMountPoint=/var/lib/libvirt/backups
+
+[Service]
+Type=oneshot
+# Backups can run for hours; the default 90 s start timeout would kill
+# them:
+TimeoutStartSec=infinity
+# Be gentle towards the production VMs:
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# The tool and its children (qemu-img, rustic) never need setuid or
+# setcap helpers, and nothing outside this service needs its temp dir:
+NoNewPrivileges=yes
+PrivateTmp=yes
+ExecStart=/usr/bin/libvirt-backup backup
+# Retention runs only if the backup itself succeeded (exit 0); it is a
+# no-op with a warning when no [repo] is configured:
+ExecStartPost=/usr/bin/libvirt-backup forget

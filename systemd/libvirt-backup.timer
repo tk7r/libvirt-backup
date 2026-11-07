@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly libvirt backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+# Catch up the same morning after a missed run (host was off):
+Persistent=true
+# Spread load if several hosts share the S3 target:
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target
