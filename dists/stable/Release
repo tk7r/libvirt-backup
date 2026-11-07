@@ -1,0 +1,19 @@
+Architectures: all
+Codename: stable
+Components: main
+Date: Sat, 07 Nov 2026 19:51:11 +0000
+Label: libvirt-backup
+Origin: libvirt-backup
+Suite: stable
+MD5Sum:
+ dc3428cba9ee6ed2197b8369746e3225             1309 main/binary-all/Packages
+ 3eabb8b0c86992133698377263415796              823 main/binary-all/Packages.gz
+SHA1:
+ e50fb9d08bdde824aa645736b237115d0900f2f8             1309 main/binary-all/Packages
+ 908c5ad5c9b1c17eb82d2dd5882a9c7d773f70f5              823 main/binary-all/Packages.gz
+SHA256:
+ 1602f122030e5ffe31b5d94546140dd469230b516dc544aea0e587921b51a6a0             1309 main/binary-all/Packages
+ db57230728490755faa5be187aca5038a91b48be844e26e626c97411cfbb9a46              823 main/binary-all/Packages.gz
+SHA512:
+ bccf8e6273ee234c730f89e2b019f9c14891c767b7f49a5a45fd236a82f1d2c73209c3f3d0e8ea6048efac7226a9dac007c5a43dd574d051f0536724c6f933a8             1309 main/binary-all/Packages
+ 5d2766b4e638a79589d9721371b075dff2efa95d0c13bb5c8a7d6c59c7221caf6971d78341aa37c64fedcf3e38eeac1f963f7217a6b9c76e3dc6a148af0bad10              823 main/binary-all/Packages.gz

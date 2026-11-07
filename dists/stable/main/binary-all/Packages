@@ -1,0 +1,27 @@
+Package: libvirt-backup
+Architecture: all
+Version: 0.1.5
+Priority: optional
+Section: admin
+Maintainer: Thomas Kotzian <thomas.kotzian@lausa.at>
+Installed-Size: 173
+Depends: python3, python3-libvirt, qemu-utils
+Recommends: rustic | restic, python3-libnbd
+Filename: pool/libvirt-backup_0.1.5_all.deb
+Size: 42134
+MD5sum: 741596a35a3fe71875b1c7acf2364ff9
+SHA1: 1245f2e523c1a073068615bba0dab060beabcbef
+SHA256: eae63d9660033f8a7853def0231561558951a60fadf6861d5f1acdf92fa466f1
+SHA512: 7bf00f93dae6a75bc7e48318128c22edabe58e753f9b26fdba1ecbe21ef6ba4c9cf15d5f7c43f9791a19bb834f7094c60da3cfbd6497939e457ab0297f152b95
+Description: push backup and restore tool for libvirt/QEMU virtual machines
+ libvirt-backup backs up every running domain of a libvirt host entirely
+ through the libvirt API (domfsfreeze, backupBegin, blockjob monitoring,
+ dumpxml).  Images are written as standalone qcow2/raw files into a backup
+ directory, or flattened to raw and streamed into a deduplicated,
+ encrypted rustic/restic repository (e.g. S3).
+ .
+ The restore subcommand places one VM's images and XMLs into a destination
+ directory and runs on a rescue system without libvirt; forget and check
+ handle repository retention and integrity.  The included systemd timers
+ stay inert until /etc/libvirt-backup/libvirt-backup.toml exists.
+

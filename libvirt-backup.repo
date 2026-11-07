@@ -1,0 +1,7 @@
+[libvirt-backup]
+name=libvirt-backup
+baseurl=https://tk7r.github.io/libvirt-backup/rpm
+gpgcheck=1
+gpgkey=https://tk7r.github.io/libvirt-backup/repo-pub.asc
+repo_gpgcheck=1
+enabled=1
