@@ -24,6 +24,10 @@ permissions:
 jobs:
   release:
     name: Build packages, publish assets and Pages repos
+    # the internal gitea mirror reads .github/workflows too but builds
+    # with Jenkins; Gitea provides github.repository, so the job is
+    # skipped there (also disable Actions on that repo as a safeguard)
+    if: github.repository == 'tk7r/libvirt-backup'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
